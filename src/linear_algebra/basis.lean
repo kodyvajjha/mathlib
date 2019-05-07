@@ -21,14 +21,204 @@ We define the following concepts:
 * `is_basis.constr s g`: constructs a `linear_map` by extending `g` from the basis `s`
 
 -/
-import linear_algebra.basic linear_algebra.finsupp order.zorn
+import linear_algebra.basic linear_algebra.finsupp order.zorn data.set.finite
 noncomputable theory
+universes u v w
+-- TODO: move:
+
+-- TODO: needed?
+lemma multiset.not_nonempty {α : Type*} (h : ¬ nonempty α) (s : multiset α) : s = ∅ :=
+begin
+  apply multiset.eq_zero_of_forall_not_mem,
+  intro x,
+  exfalso,
+  apply h (nonempty.intro x),
+end
+
+-- TODO: needed?
+lemma finset.not_nonempty {α : Type*} (h : ¬ nonempty α) (s : finset α) : s = ∅ :=
+by apply finset.eq_of_veq; apply multiset.not_nonempty h
+
+-- TODO: needed?
+lemma sum_not_nonempty {α : Type*} {β : Type*} {γ : Type*} [has_zero β] [add_comm_monoid γ]
+  (h : ¬ nonempty α) (l : α →₀ β) (f : α → β → γ) :
+  finsupp.sum l f = 0 :=
+begin
+  unfold finsupp.sum,
+  rw finset.not_nonempty h l.support,
+  simp
+end
+
+-- TODO: needed?
+lemma lsum_not_nonempty {α : Type*} {β : Type*} {γ : Type*} [decidable_eq α] [decidable_eq β] [decidable_eq γ] [add_comm_group β] [ring γ] [module γ β]
+  (h : ¬ nonempty α) (f : α → (γ →ₗ[γ] β)) :
+  finsupp.lsum f = 0 :=
+begin
+  ext x,
+  rw finsupp.lsum_apply,
+  apply sum_not_nonempty h
+end
+
+lemma finsupp.eq_zero_of_not_nonempty {α : Type*} {β : Type*} [has_zero β] (h : ¬ nonempty α) (l : α →₀ β) : l = 0 :=
+begin
+  ext a,
+  exfalso,
+  apply h (nonempty.intro a)
+end
+
+lemma finsupp.submodule_eq_bot_of_not_nonempty {α : Type*} {γ : Type*} [decidable_eq α] [decidable_eq γ] [ring γ] (h : ¬ nonempty α)
+  (p : submodule γ (α →₀ γ)) : p = ⊥ :=
+begin
+  rw [← submodule.span_eq p],
+  apply submodule.span_eq_bot.2,
+  intros,
+  apply finsupp.eq_zero_of_not_nonempty h,
+end
+
+def sum.elim {α β γ : Type*} (f : α → γ) (g : β → γ) : α ⊕ β → γ := λ x, sum.rec_on x f g
+
+def finset.sum_preimage_left {α β : Type*} (s : finset (α ⊕ β)) : finset α :=
+(set.finite_preimage (@sum.inl.inj _ _) s.finite_to_set).to_finset
+
+def finset.sum_preimage_right {α β : Type*} (s : finset (α ⊕ β)) : finset β :=
+(set.finite_preimage (@sum.inr.inj _ _) s.finite_to_set).to_finset
+
+#check finset.prod_sum
+
+@[to_additive finset.sum_oplus]
+lemma finset.prod_oplus {α β γ δ : Type*} [decidable_eq α] [decidable_eq β] [comm_monoid δ]
+  (f : α → γ) (g : β → γ) (h : α ⊕ β → γ → δ) (s : finset (α ⊕ β)):
+  finset.prod s (λ x, h x (sum.elim f g x))
+    = s.sum_preimage_left.prod (λ x, h (sum.inl x) (f x)) * s.sum_preimage_right.prod (λ x, h (sum.inr x) (g x)) :=
+sorry
+
+def finset.outer_union {α β : Type*} [decidable_eq α] [decidable_eq β]
+  (s : finset α) (t : finset β) :=
+s.image sum.inl ∪ t.image sum.inr
+
+@[to_additive finset.sum_outer_union]
+lemma finset.prod_outer_union {α β γ δ : Type*} [decidable_eq α] [decidable_eq β] [comm_monoid δ]
+  (f : α → γ) (g : β → γ) (h : α ⊕ β → γ → δ) (s : finset α) (t : finset β):
+  finset.prod (s.outer_union t) (λ x, h x (sum.elim f g x))
+    = s.prod (λ x, h (sum.inl x) (f x)) * t.prod (λ x, h (sum.inr x) (g x)) :=
+begin
+  rw [finset.outer_union, finset.prod_union, finset.prod_image, finset.prod_image, sum.elim],
+  { simp },
+  { simp },
+  apply finset.eq_empty_of_forall_not_mem,
+  intros x hx,
+  rw [finset.mem_inter, finset.mem_image, finset.mem_image] at hx,
+  apply exists.elim hx.2,
+  apply exists.elim hx.1,
+  intros a ha b hb,
+  apply exists.elim hb,
+  apply exists.elim ha,
+  exact λ _ ha _ hb, sum.inl_ne_inr (trans ha hb.symm)
+end
+
+def finset.preimage {α β : Type*} {f : α → β} (hf : function.injective f) (s : finset β) : finset α :=
+(set.finite_preimage hf s.finite_to_set).to_finset
+
+-- TODO: rename?
+def finsupp.comap_domain {α₁ α₂ γ : Type*} [has_zero γ]
+  (f : α₁ → α₂) (hf : function.injective f) (l : α₂ →₀ γ) : α₁ →₀ γ :=
+{ support := l.support.preimage hf,
+  to_fun := (λ a, l (f a)),
+  mem_support_to_fun :=
+    begin
+      intros a,
+      simp [finset.preimage, set.finite.to_finset]
+    end }
+
+def finsupp.sum_elim_left {α β γ : Type*} [has_zero γ] (l : α ⊕ β →₀ γ) : α →₀ γ :=
+finsupp.comap_domain sum.inl (@sum.inl.inj _ _) l
+
+def finsupp.sum_elim_right {α β γ : Type*} [has_zero γ] (l : α ⊕ β →₀ γ) : β →₀ γ :=
+finsupp.comap_domain sum.inr (@sum.inr.inj _ _) l
+
+open ulift
+
+def sigma_to_sum {α : Type u} {β : Type v} : (Σ (b : bool), ite ↥b (ulift.{v} α) (ulift.{u} β)) → α ⊕ β
+| (sigma.mk tt snd) := sum.inl $ down snd
+| (sigma.mk ff snd) := sum.inr $ down snd
+
+def sum_to_sigma {α : Type u} {β : Type v} : α ⊕ β → (Σ (b : bool), ite ↥b (ulift.{v} α) (ulift.{u} β))
+| (sum.inl a) := sigma.mk tt $ up a
+| (sum.inr b) := sigma.mk ff $ up b
+
+lemma sigma_to_sum_cases {α : Type u} {β : Type v} : ∀ (a : Σ (b : bool), ite ↥b (ulift.{v} α) (ulift.{u} β)),
+  @sigma_to_sum α β a =
+  match a with
+  | (sigma.mk tt snd) := sum.inl (down snd)
+  | (sigma.mk ff snd) := sum.inr (down snd)
+  end
+| (sigma.mk tt snd) := rfl
+| (sigma.mk ff snd) := rfl
+
+#check id_rhs
+@[to_additive finset.sum_type_sum]
+lemma finset.prod_type_sum {α : Type u} {β : Type v} {γ : Type v} [decidable_eq α] [decidable_eq β]
+  [comm_monoid γ] (s : finset (α ⊕ β)) (f : α ⊕ β → γ) :
+  s.prod f = (s.preimage (@sum.inl.inj _ _)).prod (λ x, f (sum.inl x))
+           * (s.preimage (@sum.inr.inj _ _)).prod (λ x, f (sum.inr x))  :=
+begin
+--let s' : set (Σ (b : bool), ite ↥b (ulift.{v} α) (ulift.{u} β)) := (λ b, bool.cases_on b ((s.preimage (@sum.inr.inj _ _)).image up) ((s.preimage (@sum.inl.inj _ _)).image up)),
+  have := @finset.prod_sigma bool γ _ (λ b, ite b (ulift.{v} α) (ulift.{u} β)) finset.univ
+  (λ b, bool.cases_on b ((s.preimage (@sum.inr.inj _ _)).image up) ((s.preimage (@sum.inl.inj _ _)).image up))
+            (λ x, f $ sigma_to_sum x),
+            simp at this,
+            simp [sigma_to_sum_cases ⟨tt, _⟩] at this,
+            simp [sigma_to_sum_cases ⟨ff, _⟩] at this,
+have := finset.prod_map s,
+            -- dite b (λ hb, _/-sum.inl x-/) (λ hb, _/-sum.inr x-/)),
+
+end
+
+#check sigma.mk.inj
+
+def finsupp.sigma_elim {α β : Type*} {σ : α → Type*} [has_zero β] (a : α) (l : sigma σ →₀ β) : σ a →₀ β :=
+finsupp.comap_domain (sigma.mk a) sorry l
+
+#check finset.sigma
+
+lemma bar {α β : Type*} {σ : α → Type*} [fintype α] [decidable_eq α] [∀ i, decidable_eq (σ i)]
+ (t : finset (Σ i, σ i)):
+finset.sigma finset.univ (λ i, @finset.preimage _ _ (sigma.mk i) sorry t) = t :=
+begin
+  unfold finset.preimage,
+  rw finset.sigma_eq_bind,
+  simp,
+end
+
+lemma foo {α β : Type*} {σ : α → Type*} [has_zero β] (a : α) {s : finset α} (l : sigma σ →₀ β) :
+finset.sigma s (λ i, (finsupp.sigma_elim i l).support) = l.support :=
+begin
+  unfold finsupp.sigma_elim,
+  dsimp [finsupp.sigma_elim],
+end
+
+lemma finsupp.sum_sigma {α β γ : Type*} {σ : α → Type*} [has_zero β] [add_comm_monoid γ]
+  {s : finset α} {l : sigma σ →₀ β} {f : sigma σ → β → γ} :
+  l.sum f = s.sum (λ a, (l.sigma_elim a).sum (λ x y, f (sigma.mk a x) y)) :=
+begin
+unfold finsupp.sum,
+  have := @finset.sum_sigma α _ _ σ s (λ i, (l.sigma_elim i).support),
+  simp at this,
+end
+
+
+lemma finsupp.sum_sum {α β γ δ : Type*} [has_zero γ] [add_comm_monoid δ]
+  (l : α ⊕ β →₀ γ) (f : α ⊕ β → γ → δ) :
+  l.sum f = l.sum_elim_left.sum (λ x y, f (sum.inl x) y) + l.sum_elim_right.sum (λ x y, f (sum.inr x) y) :=
+begin
+  have := finset.prod_sigma,
+end
 
 open function lattice set submodule
 
-variables {ι : Type*} {α : Type*} {β : Type*} {γ : Type*} {δ : Type*}
-          {v : ι → β}
-variables [decidable_eq ι] [decidable_eq α] [decidable_eq β] [decidable_eq γ] [decidable_eq δ]
+variables {ι : Type*} {ι' : Type*} {α : Type*} {β : Type*} {γ : Type*} {δ : Type*}
+          {v : ι → β} {v' : ι' → β}
+variables [decidable_eq ι] [decidable_eq ι'] [decidable_eq α] [decidable_eq β] [decidable_eq γ] [decidable_eq δ]
 
 section module
 variables [ring α] [add_comm_group β] [add_comm_group γ] [add_comm_group δ]
@@ -41,45 +231,76 @@ variables {s t : set ι}
 
 variables (α) (v)
 /-- Linearly independent set of vectors -/
-def linear_independent (s : set ι) : Prop :=
-disjoint (finsupp.supported α α s) (finsupp.total ι β α v).ker
+def linear_independent : Prop :=
+(finsupp.total ι β α v).ker = ⊥
 variables {α} {v}
 
-theorem linear_independent_iff : linear_independent α v s ↔
-  ∀l ∈ finsupp.supported α α s, finsupp.total ι β α v l = 0 → l = 0 :=
-by simp [linear_independent, linear_map.disjoint_ker]
+theorem linear_independent_iff : linear_independent α v ↔
+  ∀l, finsupp.total ι β α v l = 0 → l = 0 :=
+by simp [linear_independent, linear_map.ker_eq_bot']
 
-theorem linear_independent_iff_total_on : linear_independent α v s ↔ (finsupp.total_on ι β α v s).ker = ⊥ :=
-by rw [finsupp.total_on, linear_map.ker, linear_map.comap_cod_restrict, map_bot, comap_bot,
-  linear_map.ker_comp, linear_independent, disjoint, ← map_comap_subtype, map_le_iff_le_comap,
-  comap_bot, ker_subtype, le_bot_iff]
-
-lemma linear_independent_empty : linear_independent α v (∅ : set ι) :=
-by simp [linear_independent]
-
-lemma linear_independent.mono (h : t ⊆ s) : linear_independent α v s → linear_independent α v t :=
-disjoint_mono_left (finsupp.supported_mono h)
-
-lemma linear_independent.unique (hs : linear_independent α v s) {l₁ l₂ : ι  →₀ α} :
-  l₁ ∈ finsupp.supported α α s → l₂ ∈ finsupp.supported α α s →
-  finsupp.total ι β α v l₁ = finsupp.total ι β α v l₂ → l₁ = l₂ :=
-linear_map.disjoint_ker'.1 hs _ _
-
-lemma zero_not_mem_of_linear_independent
-  {i : ι} (ne : 0 ≠ (1:α)) (hs : linear_independent α v s) (hi : v i = 0) :
-    i ∉ s :=
-λ h, ne $ eq.symm begin
-  suffices : (finsupp.single i 1 : ι →₀ α) i = 0, {simpa},
-  rw disjoint_def.1 hs _ (finsupp.single_mem_supported _ 1 h),
-  {refl}, {simp [hi]}
+/-
+#check finsupp.lsum
+theorem linear_independent_restrict_iff_total_on :
+  linear_independent α (function.restrict v s) ↔ (finsupp.total_on ι β α v s).ker = ⊥ :=
+begin
+ rw [restrict_eq, finsupp.total_on, linear_map.ker, linear_map.comap_cod_restrict, map_bot, comap_bot,
+  linear_map.ker_comp, linear_independent, ←comap_bot, ←comap_bot, ← comap_comp, finsupp.total],
+sorry
 end
 
-lemma linear_independent_union
-  (hs : linear_independent α v s) (ht : linear_independent α v t)
-  (hst : disjoint (span α (v '' s)) (span α (v '' t))) :
-  linear_independent α v (s ∪ t) :=
+-/
+
+
+lemma linear_independent.empty (h : ¬ nonempty ι):
+  linear_independent α v :=
+by apply finsupp.submodule_eq_bot_of_not_nonempty h
+
+lemma linear_independent.mono (f : ι' → ι) (hf : injective f) :
+  linear_independent α v → linear_independent α (v ∘ f) :=
 begin
-  rw [linear_independent, disjoint_def, finsupp.supported_union],
+  unfold linear_independent,
+  intros h,
+  rw [finsupp.total_comp, linear_map.ker_comp, h],
+  apply linear_map.ker_eq_bot.2,
+  apply finsupp.injective_map_domain hf
+end
+
+lemma linear_independent.unique (hs : linear_independent α v) {l₁ l₂ : ι →₀ α} :
+  finsupp.total ι β α v l₁ = finsupp.total ι β α v l₂ → l₁ = l₂ :=
+by apply linear_map.ker_eq_bot.1 hs
+
+lemma zero_not_mem_of_linear_independent
+  {i : ι} (ne : 0 ≠ (1:α)) (hs : linear_independent α v) : v i ≠ 0 :=
+λ h, ne $ eq.symm begin
+  suffices : (finsupp.single i 1 : ι →₀ α) i = 0, {simpa},
+  rw [linear_independent, linear_map.ker_eq_bot'] at hs,
+  rw hs (finsupp.single i 1),
+  { simp },
+  rw [finsupp.total_single, h, smul_zero]
+end
+
+#check disjoint_def
+
+lemma linear_independent_union
+  (hv : linear_independent α v) (hv' : linear_independent α v')
+  (h_disjoint : disjoint (span α (range v)) (span α (range v'))) :
+  linear_independent α (sum.elim v v') :=
+begin
+  rw [linear_independent_iff],
+  intros l hl,
+  rw [←image_univ, ←image_univ, finsupp.span_eq_map_total, finsupp.span_eq_map_total, finsupp.supported_univ] at h_disjoint,
+  simp at h_disjoint,
+  rw finsupp.total_apply at hl,
+  rw finsupp.sum at hl,
+  have := finset.sum_outer_union v v' (λ x y, l x • y) l.sum_elim_left.support l.sum_elim_right.support,
+  simp at this,
+  have := linear_independent_iff.1 hv (finsupp.sum_elim_left l),
+  rw finsupp.total_apply at this,
+  rw finsupp.sum at this,
+
+
+  -- disjoint_def, finsupp.supported_union],
   intros l h₁ h₂, rw mem_sup at h₁,
   rcases h₁ with ⟨ls, hls, lt, hlt, rfl⟩,
   rw [finsupp.span_eq_map_total, finsupp.span_eq_map_total] at hst,

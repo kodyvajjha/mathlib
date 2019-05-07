@@ -307,6 +307,14 @@ begin
   exact λ i hi, ⟨single i 1, by simp [hi]⟩
 end
 
+theorem total_comp (f : α' → α) :
+  (finsupp.total α' β γ (v ∘ f)) = (finsupp.total α β γ v).comp (lmap_domain γ γ f) :=
+begin
+ ext l,
+ simp [total_apply],
+ rw sum_map_domain_index; simp [add_smul],
+end
+
 theorem lmap_domain_total (f : α → α') (g : β →ₗ[γ] β') (h : ∀ i, g (v i) = v' (f i)) :
   (finsupp.total α' β' γ v').comp (lmap_domain γ γ f) = g.comp (finsupp.total α β γ v) :=
 by ext l; simp [total_apply, finsupp.sum_map_domain_index, add_smul, h]
