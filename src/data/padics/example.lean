@@ -10,7 +10,7 @@ import tactic.library_search
 import set_theory.cardinal
 import tactic.find
 import order.conditionally_complete_lattice
-open rat nat lattice list padic_val_rat multiplicity int tactic
+open rat nat lattice list padic_val_rat padic_norm multiplicity int tactic
 
 section harmonic
 
@@ -67,21 +67,58 @@ by intro h ; exact (exists_nat_pow_near h one_lt_two)
 #check _root_.pow_two
 #check pow_eq_mul_pow_sub
 #check pow_eq_mul_pow_sub
-lemma pow_eq_of_eq (n m : ℕ) (p : ℚ): n = m ↔ p^n = p^m :=
+
+#check pow_ne_zero
+
+lemma pow_eq_iff_eq (n m : ℤ) (p : ℚ) (hp : p ≠ 0): n = m ↔ p^n = p^m :=
 begin
 fsplit, intro eq, rw eq,
-contrapose, intro eq,
-sorry,
+intro eq,
+suffices h : m = (m - n) + n, rw h at eq,
+
 end
+
+
+#check eq_inv_mul_iff_mul_eq
+#check _root_.pow_add
+-- lemma val_of_sum_eq_of_lt {q r : ℚ} (hqr : padic_val_rat 2 q < padic_val_rat 2 r) : (padic_val_rat 2 (q+r)) = (padic_val_rat 2 r) :=
+-- begin
+-- have : padic_val_rat 2 q ≤ max (padic_val_rat 2 (q + r)) (padic_val_rat 2 r),
+
+-- end
+#check @fpow_le_of_le
+#check pow_eq_iff_eq
+#check inv_mul_eq_iff_eq_mul
+#check pow_mul
+#check pow_eq_pow
+#check pow_le_pow
+#check fpow
+#check pow_eq_mul_pow_sub
+#check pow_le_max_of_min_le
+#check padic_val_rat_le_padic_val_rat_iff
+#check min_le_padic_val_rat_add
+#check ne_iff_lt_or_gt
+#check eq_of_neg_eq_neg
+#check eq_neg_iff_eq_neg
+#check add_eq_max_of_ne
+-- #check padic_val_rat
 
 lemma two_val_add_eq_min {q r : ℚ} (hne : padic_val_rat 2 q ≠ padic_val_rat 2 r) (hq : q ≠ 0) (hr : r ≠ 0) (hqr : q + r ≠ 0) :
   padic_val_rat 2 (q + r) = min (padic_val_rat 2 q) (padic_val_rat 2 r) :=
+have h₁ : padic_norm 2 q ≠ padic_norm 2 r, {
+  simp [padic_norm, hq, hr], assume not,
+  rw ←pow_eq_iff_eq at not, rw eq_neg_iff_eq_neg at not, rw _root_.neg_neg at not, exact hne not.symm, norm_num,
+},
 begin
-have pqr : padic_norm 2 (q + r) = 2^(-padic_val_rat 2 (q+r)), by simp [hqr],
-have pr : padic_norm 2 (r) = 2^(-padic_val_rat 2 (r)), by simp [hr],
-have pq : padic_norm 2 (q) = 2^(-padic_val_rat 2 (q)), by simp [hq],
-rw min_eq_neg_max_neg_neg, rw eq_neg_iff_eq_neg,
-sorry,
+have := @add_eq_max_of_ne 2 _ q r h₁,
+simp [padic_norm, hq, hr, hqr] at this,
+rw min_eq_neg_max_neg_neg,
+rw eq_neg_iff_eq_neg, rw pow_eq_iff_eq _ _ 2, rw this,
+by_cases (-padic_val_rat 2 q ≤ -padic_val_rat 2 r),
+  simp [h], have := @fpow_le_of_le ℚ _ 2 (le_of_lt one_lt_two) _ _ h,
+  simp [this],
+  rw not_le at h, replace := int.le_of_lt h, have g := @fpow_le_of_le ℚ _ 2 (le_of_lt one_lt_two) _ _ this,
+  simp [g], rw ←not_le at h, simp [max,h], norm_num,
 end
 
 end harmonic
