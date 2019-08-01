@@ -1,16 +1,7 @@
--- import algebra.field
-import data.nat.modeq order.lattice
-import tactic.tidy
-import algebra.archimedean
-import data.padics.padic_norm
+import data.padics.padic_norm tactic.tidy
 import data.padics.padic_integers
-import data.nat.prime
-import data.zmod.basic
-import tactic.library_search
-import set_theory.cardinal
-import tactic.omega
-import order.conditionally_complete_lattice
-open rat nat lattice list padic_val_rat padic_norm multiplicity int tactic
+
+open rat nat lattice list padic_val_rat padic_norm multiplicity int tactic finset
 
 section harmonic
 
@@ -23,8 +14,32 @@ variable x:ℚ
 
 def harmonic_number : ℕ → ℚ
 | 0 := 0
-| 1 := 1
 | (succ n) := (harmonic_number n) + 1 /. (n+1)
+
+def pow_two_near {n : ℤ} (hn : n > 1) : ∃ k : ℕ, (2 ^ k ≤ n ∧ n < 2^(k+1)) := (exists_nat_pow_near hn one_lt_two)
+
+
+lemma harmonic_num_eq_finset_sum (n : ℕ) : harmonic_number n  = sum (range (succ n)) (λ i, 1 /. i) :=
+begin
+  induction n with k ih, refl,
+  rw [harmonic_number, finset.sum_range_succ, ih, add_comm], refl,
+end
+
+lemma harmonic_num_eq_add {n : ℤ} (hn : n > 1) : ∃ k : ℕ, (2^k ≤ n ∧ n < 2^(k+1)) ∧  harmonic_number n.to_nat = sum (erase (range (succ n.to_nat)) (2^k)) (λ i, 1/.i) + 1/. ↑(2^k) :=
+begin
+  have := pow_two_near hn,
+  choose k hk using this,
+  existsi k, refine ⟨hk,_⟩, rw add_comm,
+  rw harmonic_num_eq_finset_sum,
+  have h₁ : 2^k ∉ erase (range (succ n.to_nat)) (2^k), by exact not_mem_erase _ _,
+  have h₂ : finset.sum (erase (range (succ n.to_nat)) (2^k)) (λ i, 1 /. i) + 1/. ↑(2^k)  = finset.sum (insert (2^k) (erase (range (succ n.to_nat)) (2^k))) (λ i, 1 /. i), by rw [finset.sum_insert h₁, add_comm],
+  rw add_comm, rw h₂, rw insert_erase, rw finset.mem_range,
+  refine lt_of_le_of_lt _ _, exact n.to_nat,
+  rw ←coe_nat_le_coe_nat_iff, simp, rw to_nat_of_nonneg (int.le_of_lt (lt_trans zero_lt_one hn)), exact hk.1,
+  exact nat.lt_succ_self _,
+end
+
+
 
 @[simp] lemma finite_two (q : ℕ) (hq : q ≠ 0) : finite 2 q :=
 begin
@@ -64,12 +79,6 @@ begin
   },
   apply pow_ne_zero, exact two_ne_zero,
 end
-
-
-def pow_two_near {n : ℤ} (hn : n > 1) : ∃ k : ℕ, (2 ^ k ≤ n ∧ n < 2^(k+1)) := (exists_nat_pow_near hn one_lt_two)
-
-
-
 
 lemma pow_eq_iff_eq (n m : ℤ) {p : ℚ} (hp : p ≠ 0): n = m ↔ p^n = p^m :=
 begin
