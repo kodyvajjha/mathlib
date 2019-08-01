@@ -16,8 +16,23 @@ def harmonic_number : ℕ → ℚ
 | 0 := 0
 | (succ n) := (harmonic_number n) + 1 /. (n+1)
 
+def harmonic_number' : ℤ → ℚ
+| -[1+ n]  := 0
+| 0        := 0
+| (succ n) := (harmonic_number n) + 1 /. (n+1)
+
 def pow_two_near {n : ℤ} (hn : n > 1) : ∃ k : ℕ, (2 ^ k ≤ n ∧ n < 2^(k+1)) := (exists_nat_pow_near hn one_lt_two)
 
+/- TODO: Generalize and move. -/
+lemma to_nat_succ_of_nonneg {n : ℤ} (hn : n > 1) : to_nat (succ n) = succ n.to_nat :=
+begin
+  rw ←int.coe_nat_eq_coe_nat_iff, rw int.coe_nat_succ,
+  rw to_nat_of_nonneg, rw to_nat_of_nonneg, refl, linarith,
+  refine int.le_of_lt _,
+  suffices : n > 0,
+  refine lt_trans this (lt_succ _),
+  exact lt_trans (zero_lt_one) hn,
+end
 
 lemma harmonic_num_eq_finset_sum (n : ℕ) : harmonic_number n  = sum (range (succ n)) (λ i, 1 /. i) :=
 begin
@@ -38,7 +53,6 @@ begin
   rw ←coe_nat_le_coe_nat_iff, simp, rw to_nat_of_nonneg (int.le_of_lt (lt_trans zero_lt_one hn)), exact hk.1,
   exact nat.lt_succ_self _,
 end
-
 
 
 @[simp] lemma finite_two (q : ℕ) (hq : q ≠ 0) : finite 2 q :=
@@ -104,6 +118,33 @@ begin
     rw not_le at h, replace := int.le_of_lt h, have g := @fpow_le_of_le ℚ _ 2 (le_of_lt one_lt_two) _ _ this,
     simp [g], rw ←not_le at h, simp [max,h], norm_num,
 end
+
+
+lemma two_val_add_lt_of_two_val_lt {q r : ℚ}  (hq : q ≠ 0) (hr : r ≠ 0) (hqr : q + r ≠ 0) (a : ℤ) (qlt : a < padic_val_rat 2 q) (plt : a < padic_val_rat 2 r ) : a < padic_val_rat 2 (q+r) := lt_of_lt_of_le (lt_min qlt plt) (min_le_padic_val_rat_add 2 hq hr hqr)
+
+
+lemma two_val_finset_sum_lt {s : finset ℕ} {k : ℕ} (hk : 0 < k) (hp : ∀ i:ℕ, i ∈ s → padic_val_rat 2 (1 /. 2^k) < padic_val_rat 2 (1 /. i)) : padic_val_rat 2 (1 /. 2^k) < padic_val_rat 2 (finset.sum s (λ i, 1/.i)) :=
+begin
+apply finset.induction_on s,
+simp, rw two_val_rec_pow_two, simpa [padic_val_rat,neg_lt],
+intros a s ha ih, rw sum_insert ha, refine two_val_add_lt_of_two_val_lt _ _ _ _ _ ih,
+end
+
+lemma two_val_of_summand {n : ℤ} (hn : n > 1) : ∃ k : ℕ, (2^k ≤ n ∧ n < 2^(k+1)) ∧
+(
+  ∀ i ∈ erase (range (succ n).to_nat) (2^k) , padic_val_rat 2 (1 /. 2^k) < padic_val_rat 2 (1 /. i)
+  →
+  padic_val_rat 2 (1 /. 2^k) < padic_val_rat 2 (sum (erase (range (succ n.to_nat)) (2^k)) (λ i, 1/.i))
+) :=
+begin
+  have := pow_two_near hn,
+  choose k hk using this,
+  existsi k, refine ⟨hk,_⟩,
+  assume i hmem hval, rw mem_erase at hmem, rw finset.mem_range at hmem, rw to_nat_succ_of_nonneg hn at hmem,
+  simp [two_val_rec_pow_two] at *,
+
+end
+
 
 #check padic_val_rat.inv
 #check le_padic_val_rat_add_of_le
