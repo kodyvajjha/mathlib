@@ -10,9 +10,9 @@ import topology.separation
 
 This file defines three properties of functions:
 
-`dense_range f`      means `f` has dense image;
-`dense_inducing i`   means `i` is also `inducing`;
-`dense_embedding e`  means `e` is also an `embedding`.
+* `dense_range f`      means `f` has dense image;
+* `dense_inducing i`   means `i` is also `inducing`;
+* `dense_embedding e`  means `e` is also an `embedding`.
 
 The main theorem `continuous_extend` gives a criterion for a function
 `f : X → Z` to a regular (T₃) space Z to extend along a dense embedding
@@ -58,11 +58,9 @@ end
 
 /-- If `f : α → β` has dense range and `β` contains some element, then `α` must too. -/
 def dense_range.inhabited (df : dense_range f) (b : β) : inhabited α :=
-⟨begin
-  have := exists_mem_of_ne_empty (mem_closure_iff.1 (df b) _ is_open_univ trivial),
-  simp only [mem_range, univ_inter] at this,
-  exact classical.some (classical.some_spec this),
- end⟩
+⟨classical.choice $
+  by simpa only [univ_inter, range_nonempty_iff_nonempty] using
+    mem_closure_iff.1 (df b) _ is_open_univ trivial⟩
 
 lemma dense_range.nonempty (hf : dense_range f) : nonempty α ↔ nonempty β :=
 ⟨nonempty.map f, λ ⟨b⟩, @nonempty_of_inhabited _ (hf.inhabited b)⟩
@@ -101,8 +99,7 @@ begin
   rw [image_preimage_eq_inter_range, mem_closure_iff],
   intros U U_op b_in,
   rw ←inter_assoc,
-  have ne_e : U ∩ s ≠ ∅ := ne_empty_of_mem ⟨b_in, b_in_s⟩,
-  exact (dense_iff_inter_open.1 di.closure_range) _ (is_open_inter U_op s_op) ne_e
+  exact (dense_iff_inter_open.1 di.closure_range) _ (is_open_inter U_op s_op) ⟨b, b_in, b_in_s⟩
 end
 
 lemma closure_image_nhds_of_nhds {s : set α} {a : α} (di : dense_inducing i) :
@@ -145,19 +142,15 @@ begin
   exact le_trans lim1 lim2,
 end
 
-protected lemma nhds_inf_neq_bot (di : dense_inducing i) {b : β} : 𝓝 b ⊓ principal (range i) ≠ ⊥ :=
+protected lemma nhds_inf_ne_bot (di : dense_inducing i) {b : β} : 𝓝 b ⊓ principal (range i) ≠ ⊥ :=
 begin
   convert di.dense b,
   simp [closure_eq_nhds]
 end
 
-lemma comap_nhds_neq_bot (di : dense_inducing i) {b : β} : comap i (𝓝 b) ≠ ⊥ :=
-forall_sets_neq_empty_iff_neq_bot.mp $
-assume s ⟨t, ht, (hs : i ⁻¹' t ⊆ s)⟩,
-have t ∩ range i ∈ 𝓝 b ⊓ principal (range i),
-  from inter_mem_inf_sets ht (subset.refl _),
-let ⟨_, ⟨hx₁, y, rfl⟩⟩ := inhabited_of_mem_sets di.nhds_inf_neq_bot this in
-subset_ne_empty hs $ ne_empty_of_mem hx₁
+lemma comap_nhds_ne_bot (di : dense_inducing i) {b : β} : comap i (𝓝 b) ≠ ⊥ :=
+comap_ne_bot $ λ s hs,
+let ⟨_, ⟨ha, a, rfl⟩⟩ := mem_closure_iff_nhds.1 (di.dense b) s hs in ⟨a, ha⟩
 
 variables [topological_space γ]
 
@@ -170,7 +163,7 @@ def extend (di : dense_inducing i) (f : α → γ) (b : β) : γ :=
 
 lemma extend_eq [t2_space γ] {b : β} {c : γ} {f : α → γ} (hf : map f (comap i (𝓝 b)) ≤ 𝓝 c) :
   di.extend f b = c :=
-@lim_eq _ _ (id _) _ _ _ (by simp; exact comap_nhds_neq_bot di) hf
+@lim_eq _ _ (id _) _ _ _ (by simp; exact comap_nhds_ne_bot di) hf
 
 lemma extend_e_eq [t2_space γ] {f : α → γ} (a : α) (hf : continuous_at f a) :
   di.extend f (i a) = f a :=
@@ -205,9 +198,9 @@ have h₂ : t ⊆ di.extend f ⁻¹' closure (f '' (i ⁻¹' t)), from
   show di.extend f b' ∈ closure (f '' (i ⁻¹' t)),
   begin
     rw [closure_eq_nhds],
-    apply neq_bot_of_le_neq_bot _ this,
+    apply ne_bot_of_le_ne_bot _ this,
     simp,
-    exact di.comap_nhds_neq_bot
+    exact di.comap_nhds_ne_bot
   end,
 (𝓝 b).sets_of_superset
   (show t ∈ 𝓝 b, from mem_nhds_sets ht₂ ht₃)
@@ -325,3 +318,14 @@ lemma dense_range.induction_on₂ [topological_space β] {e : α → β} {p : β
 lemma dense_range.induction_on₃ [topological_space β] {e : α → β} {p : β → β → β → Prop}
   (he : dense_range e) (hp : is_closed {q:β×β×β | p q.1 q.2.1 q.2.2}) (h : ∀a₁ a₂ a₃, p (e a₁) (e a₂) (e a₃))
   (b₁ b₂ b₃ : β) : p b₁ b₂ b₃ := is_closed_property3 he hp h _ _ _
+
+section
+variables [topological_space β] [topological_space γ] [t2_space γ]
+variables {f : α → β}
+
+/-- Two continuous functions to a t2-space that agree on the dense range of a function are equal. -/
+lemma dense_range.equalizer (hfd : dense_range f)
+  {g h : β → γ} (hg : continuous g) (hh : continuous h) (H : g ∘ f = h ∘ f) :
+  g = h :=
+funext $ λ y, hfd.induction_on y (is_closed_eq hg hh) $ congr_fun H
+end

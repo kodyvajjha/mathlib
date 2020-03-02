@@ -5,6 +5,7 @@ Authors: Jeremy Avigad, Leonardo de Moura, Floris van Doorn, Amelia Livingston
 -/
 
 import algebra.group
+import deprecated.group
 import tactic.norm_cast
 
 /-!
@@ -58,6 +59,10 @@ theorem bit0_eq_two_mul (n : α) : bit0 n = 2 * n :=
 
 @[simp] lemma mul_ite {α} [semiring α] (P : Prop) [decidable P] (a : α) :
   a * (if P then 1 else 0) = if P then a else 0 :=
+by split_ifs; simp
+
+@[simp] lemma ite_mul {α} [semiring α] (P : Prop) [decidable P] (a : α) :
+  (if P then 1 else 0) * a = if P then a else 0 :=
 by split_ifs; simp
 
 variable (α)
@@ -150,6 +155,7 @@ variables (f : α → β) [is_semiring_hom f] {x y : α}
 instance id : is_semiring_hom (@id α) := by refine {..}; intros; refl
 
 /-- The composition of two semiring homomorphisms is a semiring homomorphism. -/
+@[priority 10] -- see Note [low priority instance on morphisms]
 instance comp {γ} [semiring γ] (g : β → γ) [is_semiring_hom g] :
   is_semiring_hom (g ∘ f) :=
 { map_zero := by simp [map_zero f]; exact map_zero g,
@@ -158,10 +164,12 @@ instance comp {γ} [semiring γ] (g : β → γ) [is_semiring_hom g] :
   map_mul := λ x y, by simp [map_mul f]; rw map_mul g; refl }
 
 /-- A semiring homomorphism is an additive monoid homomorphism. -/
+@[priority 100] -- see Note [lower instance priority]
 instance : is_add_monoid_hom f :=
 { ..‹is_semiring_hom f› }
 
 /-- A semiring homomorphism is a monoid homomorphism. -/
+@[priority 100] -- see Note [lower instance priority]
 instance : is_monoid_hom f :=
 { ..‹is_semiring_hom f› }
 
@@ -293,6 +301,7 @@ by simp [map_add f, map_neg f]
 instance id : is_ring_hom (@id α) := by refine {..}; intros; refl
 
 /-- The composition of two ring homomorphisms is a ring homomorphism. -/
+@[priority 10] -- see Note [low priority instance on morphisms]
 instance comp {γ} [ring γ] (g : β → γ) [is_ring_hom g] :
   is_ring_hom (g ∘ f) :=
 { map_add := λ x y, by simp [map_add f]; rw map_add g; refl,
@@ -300,18 +309,23 @@ instance comp {γ} [ring γ] (g : β → γ) [is_ring_hom g] :
   map_one := by simp [map_one f]; exact map_one g }
 
 /-- A ring homomorphism is also a semiring homomorphism. -/
+@[priority 100] -- see Note [lower instance priority]
 instance : is_semiring_hom f :=
 { map_zero := map_zero f, ..‹is_ring_hom f› }
 
+@[priority 100] -- see Note [lower instance priority]
 instance : is_add_group_hom f := { }
 
 end is_ring_hom
 
 set_option old_structure_cmd true
 
+section prio
+set_option default_priority 100 -- see Note [default priority]
 /-- Bundled semiring homomorphisms; use this for bundled ring homomorphisms too. -/
 structure ring_hom (α : Type*) (β : Type*) [semiring α] [semiring β]
   extends monoid_hom α β, add_monoid_hom α β
+end prio
 
 infixr ` →+* `:25 := ring_hom
 
@@ -431,19 +445,24 @@ def mk' {γ} [ring γ] (f : α →* γ) (map_add : ∀ a b : α, f (a + b) = f a
 
 end ring_hom
 
+section prio
+set_option default_priority 100 -- see Note [default priority]
 /-- Predicate for commutative semirings in which zero does not equal one. -/
 class nonzero_comm_semiring (α : Type*) extends comm_semiring α, zero_ne_one_class α
 
 /-- Predicate for commutative rings in which zero does not equal one. -/
 class nonzero_comm_ring (α : Type*) extends comm_ring α, zero_ne_one_class α
+end prio
 
 /-- A nonzero commutative ring is a nonzero commutative semiring. -/
+@[priority 100] -- see Note [lower instance priority]
 instance nonzero_comm_ring.to_nonzero_comm_semiring {α : Type*} [I : nonzero_comm_ring α] :
   nonzero_comm_semiring α :=
 { zero_ne_one := by convert zero_ne_one,
   ..show comm_semiring α, by apply_instance }
 
 /-- An integral domain is a nonzero commutative ring. -/
+@[priority 100] -- see Note [lower instance priority]
 instance integral_domain.to_nonzero_comm_ring (α : Type*) [id : integral_domain α] :
   nonzero_comm_ring α :=
 { ..id }
@@ -469,13 +488,16 @@ def nonzero_comm_semiring.of_ne [comm_semiring α] {x y : α} (h : x ≠ y) : no
   zero_ne_one := λ h01, h $ by rw [← one_mul x, ← one_mul y, ← h01, zero_mul, zero_mul],
   ..show comm_semiring α, by apply_instance }
 
-/-- this is needed for compatibility between Lean 3.4.2 and Lean 3.5.0c -/
+/-- this is needed for compatibility between Lean 3.4.2 and Lean 3.5.1c -/
 def has_div_of_division_ring [division_ring α] : has_div α := division_ring_has_div
 
+section prio
+set_option default_priority 100 -- see Note [default priority]
 /-- A domain is a ring with no zero divisors, i.e. satisfying
   the condition `a * b = 0 ↔ a = 0 ∨ b = 0`. Alternatively, a domain
   is an integral domain without assuming commutativity of multiplication. -/
 class domain (α : Type u) extends ring α, no_zero_divisors α, zero_ne_one_class α
+end prio
 
 section domain
   variable [domain α]
@@ -530,6 +552,7 @@ section
   include s
 
 /-- An integral domain is a domain. -/
+  @[priority 100] -- see Note [lower instance priority]
   instance integral_domain.to_domain : domain α := {..s}
 
 /-- Right multiplcation by a nonzero element of an integral domain is injective. -/
@@ -605,3 +628,24 @@ variables [domain α]
 end domain
 
 end units
+
+/-- A predicate to express that a ring is an integral domain.
+
+This is mainly useful because such a predicate does not contain data,
+and can therefore be easily transported along ring isomorphisms. -/
+structure is_integral_domain (R : Type u) [ring R] : Prop :=
+(mul_comm : ∀ (x y : R), x * y = y * x)
+(eq_zero_or_eq_zero_of_mul_eq_zero : ∀ x y : R, x * y = 0 → x = 0 ∨ y = 0)
+(zero_ne_one : (0 : R) ≠ 1)
+
+/-- Every integral domain satisfies the predicate for integral domains. -/
+lemma integral_domain.to_is_integral_domain (R : Type u) [integral_domain R] :
+  is_integral_domain R :=
+{ .. (‹_› : integral_domain R) }
+
+/-- If a ring satisfies the predicate for integral domains,
+then it can be endowed with an `integral_domain` instance
+whose data is definitionally equal to the existing data. -/
+def is_integral_domain.to_integral_domain (R : Type u) [ring R] (h : is_integral_domain R) :
+  integral_domain R :=
+{ .. (‹_› : ring R), .. (‹_› : is_integral_domain R) }
