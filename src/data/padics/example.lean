@@ -1,7 +1,23 @@
+<<<<<<< HEAD
 import data.padics.padic_norm tactic.tidy
 import data.padics.padic_integers
 
 open rat nat lattice list padic_val_rat padic_norm multiplicity int tactic finset
+=======
+-- import algebra.field
+import data.nat.modeq order.lattice
+import tactic.tidy
+import algebra.archimedean
+import data.padics.padic_norm
+import data.padics.padic_integers
+import data.nat.prime
+import data.zmod.basic
+import tactic.library_search
+import set_theory.cardinal
+import tactic.find
+import order.conditionally_complete_lattice
+open rat nat lattice list padic_val_rat multiplicity int tactic
+>>>>>>> 3781df41d... feat(padics/example.lean):Add a few lemmas about 2-adic valuations.
 
 section harmonic
 
@@ -14,6 +30,7 @@ variable x:ℚ
 
 def harmonic_number : ℕ → ℚ
 | 0 := 0
+<<<<<<< HEAD
 | (succ n) := (harmonic_number n) + 1 /. (n+1)
 
 def harmonic_number' : ℤ → ℚ
@@ -55,6 +72,11 @@ begin
 end
 
 
+=======
+| 1 := 1
+| (succ n) := (harmonic_number n) + 1 /. (n+1)
+
+>>>>>>> 3781df41d... feat(padics/example.lean):Add a few lemmas about 2-adic valuations.
 @[simp] lemma finite_two (q : ℕ) (hq : q ≠ 0) : finite 2 q :=
 begin
   apply (@finite_nat_iff 2 q).2,
@@ -71,6 +93,7 @@ begin
   have := int.coe_nat_pos.1 this,
   rw [←enat.coe_lt_coe,enat.coe_get] at this,
   replace := dvd_of_multiplicity_pos this,
+<<<<<<< HEAD
   rwa int.coe_nat_dvd at this,
 end
 
@@ -78,6 +101,9 @@ lemma nin_int_of_denom_even {x : ℚ} (hx : 2 ∣ x.denom) : x.denom ≠ 1 :=
 begin
   assume h, rw h at hx,
   have := prime.not_dvd_one prime_two, exact this hx,
+=======
+  rw int.coe_nat_dvd at this, assumption,
+>>>>>>> 3781df41d... feat(padics/example.lean):Add a few lemmas about 2-adic valuations.
 end
 
 lemma two_val_rec_pow_two (r : ℕ) : padic_val_rat 2 (1 /. (2^r)) = -r :=
@@ -94,15 +120,31 @@ begin
   apply pow_ne_zero, exact two_ne_zero,
 end
 
+<<<<<<< HEAD
 lemma pow_eq_iff_eq (n m : ℤ) {p : ℚ} (hp : p ≠ 0): n = m ↔ p^n = p^m :=
 begin
 fsplit, intro eq, rw eq,
 intro eq,
+=======
+
+def pow_two_near (n : ℤ) : (n > 1) → ∃ k : ℕ, (2 ^ k ≤ n ∧ n < 2^(k+1)) :=
+by intro h ; exact (exists_nat_pow_near h one_lt_two)
+
+#check eq_neg_iff_eq_neg
+#check _root_.pow_two
+#check pow_eq_mul_pow_sub
+#check pow_eq_mul_pow_sub
+lemma pow_eq_of_eq (n m : ℕ) (p : ℚ): n = m ↔ p^n = p^m :=
+begin
+fsplit, intro eq, rw eq,
+contrapose, intro eq,
+>>>>>>> 3781df41d... feat(padics/example.lean):Add a few lemmas about 2-adic valuations.
 sorry,
 end
 
 lemma two_val_add_eq_min {q r : ℚ} (hne : padic_val_rat 2 q ≠ padic_val_rat 2 r) (hq : q ≠ 0) (hr : r ≠ 0) (hqr : q + r ≠ 0) :
   padic_val_rat 2 (q + r) = min (padic_val_rat 2 q) (padic_val_rat 2 r) :=
+<<<<<<< HEAD
 have h₁ : padic_norm 2 q ≠ padic_norm 2 r, {
   simp [padic_norm, hq, hr], assume not,
   rw ←pow_eq_iff_eq at not, rw eq_neg_iff_eq_neg at not, rw _root_.neg_neg at not, exact hne not.symm, norm_num,
@@ -235,4 +277,14 @@ end
 
 
 
+=======
+begin
+have pqr : padic_norm 2 (q + r) = 2^(-padic_val_rat 2 (q+r)), by simp [hqr],
+have pr : padic_norm 2 (r) = 2^(-padic_val_rat 2 (r)), by simp [hr],
+have pq : padic_norm 2 (q) = 2^(-padic_val_rat 2 (q)), by simp [hq],
+rw min_eq_neg_max_neg_neg, rw eq_neg_iff_eq_neg,
+sorry,
+end
+
+>>>>>>> 3781df41d... feat(padics/example.lean):Add a few lemmas about 2-adic valuations.
 end harmonic
