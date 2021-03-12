@@ -515,7 +515,7 @@ if hr : r.num = 0 then
   have hr' : r = 0, from zero_of_num_zero hr,
   by simp *
 else
-  calc q / r = q * r⁻¹ : div_eq_mul_inv
+  calc q / r = q * r⁻¹ : div_eq_mul_inv q r
          ... = (q.num /. q.denom) * (r.num /. r.denom)⁻¹ : by simp
          ... = (q.num /. q.denom) * (r.denom /. r.num) : by rw inv_def
          ... = (q.num * r.denom) /. (q.denom * r.num) : mul_def (by simpa using denom_ne_zero q) hr
@@ -577,13 +577,21 @@ theorem coe_int_eq_mk : ∀ (z : ℤ), ↑z = z /. 1
   induction n with n IH, {refl},
   show -(n + 1 + 1 : ℚ) = -[1+ n.succ] /. 1,
   rw [neg_add, IH],
-  simpa [show -1 = (-1) /. 1, from rfl]
+  simp [show -1 = (-1) /. 1, from rfl],
 end
 
 theorem mk_eq_div (n d : ℤ) : n /. d = ((n : ℚ) / d) :=
 begin
   by_cases d0 : d = 0, {simp [d0, div_zero]},
   simp [division_def, coe_int_eq_mk, mul_def one_ne_zero d0]
+end
+
+lemma exists_eq_mul_div_num_and_eq_mul_div_denom {n d : ℤ} (n_ne_zero : n ≠ 0)
+  (d_ne_zero : d ≠ 0) :
+  ∃ (c : ℤ), n = c * ((n : ℚ) / d).num ∧ (d : ℤ) = c * ((n : ℚ) / d).denom :=
+begin
+  have : ((n : ℚ) / d) = rat.mk n d, by rw [←rat.mk_eq_div],
+  exact rat.num_denom_mk n_ne_zero d_ne_zero this
 end
 
 theorem coe_int_eq_of_int (z : ℤ) : ↑z = of_int z :=
@@ -685,13 +693,15 @@ coe_int_div_self n
 lemma coe_int_div (a b : ℤ) (h : b ∣ a) : ((a / b : ℤ) : ℚ) = a / b :=
 begin
   rcases h with ⟨c, rfl⟩,
-  simp only [mul_comm b, int.mul_div_assoc c (dvd_refl b), int.cast_mul, mul_div_assoc, coe_int_div_self]
+  simp only [mul_comm b, int.mul_div_assoc c (dvd_refl b), int.cast_mul, mul_div_assoc,
+    coe_int_div_self]
 end
 
 lemma coe_nat_div (a b : ℕ) (h : b ∣ a) : ((a / b : ℕ) : ℚ) = a / b :=
 begin
   rcases h with ⟨c, rfl⟩,
-  simp only [mul_comm b, nat.mul_div_assoc c (dvd_refl b), nat.cast_mul, mul_div_assoc, coe_nat_div_self]
+  simp only [mul_comm b, nat.mul_div_assoc c (dvd_refl b), nat.cast_mul, mul_div_assoc,
+    coe_nat_div_self]
 end
 
 protected lemma «forall» {p : ℚ → Prop} : (∀ r, p r) ↔ ∀ a b : ℤ, p (a / b) :=
